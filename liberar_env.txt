@@ -1,0 +1,11 @@
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+# comando no cmd para liberar o ambiente virtual
+
+python -m venv "nome-do-seu-ambiente-virtual"
+# criar seu ambiente virtual
+
+.\"nome-do-seu-ambiente-virtual"\Scripts\Activate
+# ativado com sucesso seu ambiente virtual
+
+# agora voce pode usar diferentes bibliotecas e versos do python
+# dentro do seu ambiente virtual, sem interferencia de terceiros :D
