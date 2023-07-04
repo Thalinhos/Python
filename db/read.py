@@ -9,3 +9,5 @@ def read_data():
     except:
         print('error')
 #Não fechar client.close(), pois preciso dele aberto no script seguinte.
+#read_data()
+#client.close()
