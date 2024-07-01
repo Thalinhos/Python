@@ -1,0 +1,1 @@
+pip install --proxy http://username:password@proxy.example.com:port package_name
