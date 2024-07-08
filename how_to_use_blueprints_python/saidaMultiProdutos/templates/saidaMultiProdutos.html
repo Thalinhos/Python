@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saida Multi Produtos</title>
+</head>
+    <body>
+        <h1>Produtos a sair</h1>
+
+        <form action="#" method="post">
+            <input type="text" name="pesquisar" id="pesquisar" placeholder="Pesquisar...">
+        </form>
+
+        <table>
+            <tbody>
+                {% for i in produtos %}
+                <tr>
+                <td>{{i[1]}}</td>
+                <td>{{i[2]}}</td>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    </body>
+</html>
+
+
+

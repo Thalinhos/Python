@@ -1,0 +1,39 @@
+generator client {
+  provider  = "prisma-client-py"
+  interface = "sync"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./clinica.db"
+}
+
+model ProdutoEntrada {
+  id            Int    @id @default(autoincrement())
+  name          String
+  quantity      Int
+  entryDate     String
+  employeeEntry String
+}
+
+model ProdutoSaida {
+  id            Int          @id @default(autoincrement())
+  name          String
+  quantity      Int
+  leftDate      String
+  customerName  String
+  employeeLeft  String
+  ProdutoNota   ProdutoNota? @relation(fields: [produtoNotaId], references: [id])
+  produtoNotaId Int?
+}
+
+model ProdutosTotal {
+  id     Int    @id @default(autoincrement())
+  name   String @unique
+  amount Int
+}
+
+model ProdutoNota {
+  id            Int            @id @default(autoincrement())
+  listaProdutos ProdutoSaida[]
+}
