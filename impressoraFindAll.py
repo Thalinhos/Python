@@ -43,16 +43,12 @@ async def ping_ip(ip):
         return None
 
 async def verificarRede(ipPrefix='--.---', inicioPing=2, finalPing=254):
-    ip_list = []
-    for subRede in subRedes:
-        for n in range(inicioPing, finalPing + 1):
-            ip = f"{ipPrefix}.{subRede}.{n}"
-            ip_list.append(ip)
-
-    tasks = [ping_ip(ip) for ip in ip_list]
-    resultados = await asyncio.gather(*tasks)
-    ipAtivos = [ip for ip in resultados if ip is not None]
-    return ipAtivos
+    ip_list = [f"{ipPrefix}.{subRede}.{n}" for subRede in subRedes for n in range(inicioPing, finalPing + 1)]
+    tasks_comprehension = [ping_ip(ip) for ip in ip_list]
+    resultados = await asyncio.gather(*tasks_comprehension)
+    ipAtivos_comprehension = [ip for ip in resultados if ip is not None]
+    print("IPs ativos (comprehension):", ipAtivos_comprehension)
+    return ipAtivos_comprehension
 
 
 PAGE_SERIAL_NUMBER = '/hp/device/InternalPages/Index?id=UsagePage'
