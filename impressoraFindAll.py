@@ -4,7 +4,7 @@ import asyncio
 from bs4 import BeautifulSoup
 import httpx
 
-subRedes = []
+subRedes = [32,36,37]
 
 WINDOWS_COUNTER_DIGIT_SHELL = '-n'  # Windows
 LINUX_COUNTER_DIGIT_SHELL = '-c'    # Unix-like (Linux, macOS)
@@ -18,6 +18,27 @@ def verificaOS():
         return LINUX_COUNTER_DIGIT_SHELL, TIMEOUT_ARG_UNIX
     else:
         raise Exception("Sistema operacional não suportado")
+
+class InfoImp:
+    def __init__(self, ip: str, serial: str, c: int | None = None, m: int | None = None, y: int | None = None, k: int | None = None):
+        self. ip = ip
+        self.serial = serial
+        self.c = c
+        self.m = m
+        self.y = y
+        self.k = k
+
+    def print_info(self):
+        print(f'{self.ip}: {self.serial}')
+        print('Páginas impressas:')
+        print(f"  ciano:   {self.c or 'n/a'}")
+        print(f"  magenta: {self.m or 'n/a'}")
+        print(f"  yellow:  {self.y or 'n/a'}")
+        print(f"  black:   {self.k or 'n/a'}")
+        print('--------------------------')
+    
+def extrair_ip(infoimp):
+    return infoimp.ip
 
 async def ping_ip(ip):
     try:
@@ -42,13 +63,12 @@ async def ping_ip(ip):
         # print(f"Erro ao pingar {ip}: {e}")
         return None
 
-async def verificarRede(ipPrefix='--.---', inicioPing=2, finalPing=254):
+async def verificarRede(ipPrefix='10.244', inicioPing=2, finalPing=254):
     ip_list = [f"{ipPrefix}.{subRede}.{n}" for subRede in subRedes for n in range(inicioPing, finalPing + 1)]
-    tasks_comprehension = [ping_ip(ip) for ip in ip_list]
-    resultados = await asyncio.gather(*tasks_comprehension)
-    ipAtivos_comprehension = [ip for ip in resultados if ip is not None]
-    print("IPs ativos (comprehension):", ipAtivos_comprehension)
-    return ipAtivos_comprehension
+    tasks = [ping_ip(ip) for ip in ip_list]
+    resultados = await asyncio.gather(*tasks)
+    ipAtivos = [ip for ip in resultados if ip is not None]
+    return ipAtivos
 
 
 PAGE_SERIAL_NUMBER = '/hp/device/InternalPages/Index?id=UsagePage'
@@ -60,10 +80,9 @@ MAGENTA_ID = 'MagentaCartridge1-PagesPrintedWithSupply'
 CIANO_ID = 'CyanCartridge1-PagesPrintedWithSupply'
 BLACK_ID = 'BlackCartridge1-PagesPrintedWithSupply'
 
-async def verificarImp(ip):
+async def verificarImp(ip) -> InfoImp | None:
     urlSerial = f"https://{ip}{PAGE_SERIAL_NUMBER}"
     urlColor = f"https://{ip}{PAGE_COLORS_VALUES}"
-    #print("Verificando IP: " + ip)
 
     try:
         async with httpx.AsyncClient(verify=False) as client:
@@ -74,34 +93,36 @@ async def verificarImp(ip):
             
             if serialNumber is None:
                 print("Pagina inválida")
-                return
+                return None
 
             resColor = await client.get(urlColor, headers={'User-Agent': 'Mozilla/5.0'})
             resColor.raise_for_status()
             soupColor = BeautifulSoup(resColor.text, 'html.parser')
-            serialColorYellow = soupColor.find(id=YELLOW_ID) or None
-            serialColorMagenta = soupColor.find(id=MAGENTA_ID) or None
-            serialColorCiano = soupColor.find(id=CIANO_ID) or None
-            serialColorBlack = soupColor.find(id=BLACK_ID) or None
+            serialColorYellow = soupColor.find(id=YELLOW_ID)
+            serialColorMagenta = soupColor.find(id=MAGENTA_ID)
+            serialColorCiano = soupColor.find(id=CIANO_ID)
+            serialColorBlack = soupColor.find(id=BLACK_ID)
 
-            print('\n')
-            print(f"{ip}: {serialNumber.get_text(strip=True)}")
-            if serialColorYellow:
-                print(f"Amarelo: {serialColorYellow.get_text(strip=True)}")
-            if serialColorMagenta:
-                print(f"Magenta: {serialColorMagenta.get_text(strip=True)}")
-            if serialColorCiano:
-                print(f"Ciano: {serialColorCiano.get_text(strip=True)}")
-            if serialColorBlack:
-                print(f"Preto: {serialColorBlack.get_text(strip=True)}\n")
+            return InfoImp(ip = ip, serial = serialNumber.get_text(strip=True),
+                c = serialColorCiano and int(serialColorCiano.get_text(strip = True)),
+                m = serialColorMagenta and int(serialColorMagenta.get_text(strip = True)),
+                y = serialColorYellow and int(serialColorYellow.get_text(strip = True)),
+                k = serialColorBlack and int(serialColorBlack.get_text(strip = True)))
+            
     except Exception as e:
-        return
+        return None
         # print('Erro ao procurar ip: ', e)
+
 
 async def main():
     ips_ativos = await verificarRede()
-    await asyncio.gather(*(verificarImp(ip) for ip in ips_ativos))
+    resultados = [x for x in await asyncio.gather(*(verificarImp(ip) for ip in ips_ativos)) if x is not None]
+
+    print('-------------------------')
+    for r in sorted(resultados, key=extrair_ip):
+        r.print_info()
     
 
 if __name__ == "__main__":
     asyncio.run(main())
+
