@@ -41,9 +41,17 @@
             const rect = img.getBoundingClientRect();
             const x = Math.floor(event.clientX - rect.left);
             const y = Math.floor(event.clientY - rect.top);
-            socket.emit('message',  { x: x, y: y }); 
+            const click = 'left'
+            socket.emit('message',  { x: x, y: y , click: click}); 
         });
 
+        document.addEventListener('contextmenu', (event) => {
+            const rect = img.getBoundingClientRect();
+            const x = Math.floor(event.clientX - rect.left);
+            const y = Math.floor(event.clientY - rect.top);
+            const click = 'right'
+            socket.emit('message',  { x: x, y: y, click: click }); 
+        });
 
 
     </script>
