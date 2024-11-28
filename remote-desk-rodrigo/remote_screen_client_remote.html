@@ -1,0 +1,51 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Remote Screen</title>
+</head>
+<body>
+    <h1>Remote Screen Viewer</h1>
+    <img id="screen" width="width: 100vw;">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        // Configure o endereço do servidor aqui
+        const socket = io('http://10.244.36.130:5000'); // Substitua pelo IP do servidor remoto
+
+        const img = document.getElementById('screen');
+
+        // Recebe os frames do servidor e atualiza a imagem
+        socket.on('frame', (data) => {
+            img.src = `data:image/jpeg;base64,${data.image}`;
+        });
+
+        // Solicita frames periodicamente
+        setInterval(() => {
+            socket.emit('request_frame');
+        }, 100);
+
+        // Envia eventos de teclado
+        document.addEventListener('keydown', (event) => {
+            socket.emit('keyboard_input', { key: event.key });
+        });
+
+        // Envia eventos de movimento do mouse
+        document.addEventListener('mousemove', (event) => {
+            const rect = img.getBoundingClientRect();
+            const x = Math.floor(event.clientX - rect.left);
+            const y = Math.floor(event.clientY - rect.top);
+            socket.emit('mouse_input', { x: x, y: y });
+        });
+
+        document.addEventListener('click', (event) => {
+            const rect = img.getBoundingClientRect();
+            const x = Math.floor(event.clientX - rect.left);
+            const y = Math.floor(event.clientY - rect.top);
+            socket.emit('message',  { x: x, y: y }); 
+        });
+
+
+
+    </script>
+</body>
+</html>
