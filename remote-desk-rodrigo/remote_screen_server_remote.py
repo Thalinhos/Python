@@ -52,9 +52,14 @@ def handle_mouse_input(data):
 
 @socketio.on('message')
 def handle_mouse_click(data):
-    x, y = data['x'], data['y']
+    x, y, click = data['x'], data['y'], data['click']
     mouse.position = (x, y)
-    mouse.click(ClickControler.left)
 
+    if(click == 'left'):
+        mouse.click(ClickControler.left)
+    elif(click == 'rigth'):
+        mouse.click(ClickControler.rigth)
+    else:
+        return
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000)
