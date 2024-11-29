@@ -58,7 +58,7 @@ def handle_mouse_click(data):
     if(click == 'left'):
         mouse.click(ClickControler.left)
     elif(click == 'rigth'):
-        mouse.click(ClickControler.rigth)
+        mouse.click(ClickControler.right)
     else:
         return
 if __name__ == '__main__':
