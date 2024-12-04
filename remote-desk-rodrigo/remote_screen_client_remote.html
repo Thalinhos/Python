@@ -57,3 +57,234 @@
     </script>
 </body>
 </html>
+
+//////// versão 2
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Control Client</title>
+    <script src="https://cdn.socket.io/4.5.1/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #f4f4f9;
+            height: 100vh;
+        }
+        h1 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        canvas {
+            border: 2px solid #333;
+            cursor: crosshair;
+            outline: none;
+        }
+        .controls {
+            display: flex;
+            flex-direction: row; /* Coloca os itens em linha */
+            align-items: center; /* Centraliza verticalmente */
+            justify-content: center; /* Centraliza horizontalmente */
+            gap: 10px; /* Espaço entre os itens */
+            margin-top: 15px;
+        }
+        .controls label {
+            margin: 0; /* Remove margens para alinhamento consistente */
+        }
+        .controls input {
+            padding: 5px;
+            font-size: 14px;
+            width: 80px; /* Define uma largura fixa */
+        }
+        .controls button {
+            cursor: pointer;
+            border: 1px solid #333;
+            background-color: #007BFF;
+            color: white;
+            border-radius: 5px;
+            padding: 10px;
+            font-size: 14px;
+        }
+        .controls button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div id="auth-section">
+        <h2>Autenticação</h2>
+        <p>Digite o código de autenticação:</p>
+        <input type="text" id="auth-code" maxlength="6">
+        <button id="auth-button">Autenticar</button>
+    </div>
+    <div id="app-section" style="display:none;">
+        <h1>Remote Control Client</h1>
+        <canvas id="screen" width="1440" height="1024" tabindex="0"></canvas>
+        <div class="controls">
+            <label for="canvasWidth">Largura:</label>
+            <input id="canvasWidth" type="number" value="1440" min="100">
+            <label for="canvasHeight">Altura:</label>
+            <input id="canvasHeight" type="number" value="1024" min="100">
+            <button id="updateSize">Atualizar Tamanho</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = io('http://10.244.36.130:5000'); // Atualize o IP se necessário
+
+        let isAuthenticated = false; // Controle de autenticação
+
+        // Autenticação
+        const authSection = document.getElementById('auth-section');
+        const appSection = document.getElementById('app-section');
+        const authButton = document.getElementById('auth-button');
+        const authCodeInput = document.getElementById('auth-code');
+
+        authButton.addEventListener('click', () => {
+            const code = authCodeInput.value;
+            socket.emit('authenticate', { code });
+        });
+
+        socket.on('auth_required', data => {
+            console.log(data.message);
+        });
+
+        socket.on('auth_success', data => {
+            alert(data.message);
+            authSection.style.display = 'none';
+            appSection.style.display = 'block';
+            isAuthenticated = true; // Marca como autenticado
+        });
+
+        socket.on('auth_failed', data => {
+            if (!isAuthenticated) {
+                alert(data.message);
+            }
+        });
+
+        // Receber quadros da tela
+        socket.on('frame', data => {
+            if (!isAuthenticated) return; // Não processa quadros se não estiver autenticado
+            const image = new Image();
+            image.onload = () => {
+                const canvas = document.getElementById('screen');
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            };
+            image.src = `data:image/jpeg;base64,${data.image}`;
+        });
+
+        // Solicitar quadros periodicamente
+        setInterval(() => {
+            if (isAuthenticated) {
+                socket.emit('request_frame');
+            }
+        }, 100);
+
+        const canvas = document.getElementById('screen');
+
+        let clickTimeout = null; // Temporizador para diferenciar cliques únicos e duplos
+
+        // Verifica se o clique foi na barra de título
+        function isOnTitleBar(event) {
+            const rect = canvas.getBoundingClientRect();
+            return event.clientY < rect.top + 30; // Considera os primeiros 30px como barra de título
+        }
+
+        // Clique único com espera para confirmar que não é duplo clique
+        canvas.addEventListener('click', e => {
+            if (isOnTitleBar(e)) {
+                if (clickTimeout) clearTimeout(clickTimeout);
+                clickTimeout = setTimeout(() => {
+                    socket.emit('mouse_click', { click: 'single', position: { on_title_bar: true } });
+                    clickTimeout = null;
+                }, 200); // Aguarda 200ms para confirmar
+            }
+        });
+
+        // Clique duplo
+        canvas.addEventListener('dblclick', e => {
+            if (isOnTitleBar(e)) {
+                if (clickTimeout) clearTimeout(clickTimeout);
+                socket.emit('mouse_click', { click: 'double', position: { on_title_bar: true } });
+            }
+        });
+
+        document.getElementById('updateSize').addEventListener('click', () => {
+            const width = parseInt(document.getElementById('canvasWidth').value, 10);
+            const height = parseInt(document.getElementById('canvasHeight').value, 10);
+
+            if (width > 0 && height > 0) {
+                canvas.width = width;
+                canvas.height = height;
+            } else {
+                alert('Dimensões inválidas!');
+            }
+        });
+
+        canvas.setAttribute('tabindex', '0');
+        canvas.style.outline = 'none';
+        canvas.addEventListener('click', () => {
+            canvas.focus();
+        });
+
+        canvas.addEventListener('mousemove', e => {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / canvas.width;
+            const y = (e.clientY - rect.top) / canvas.height;
+            socket.emit('mouse_input', { x, y });
+        });
+
+        canvas.addEventListener('mousedown', e => {
+            if (e.button === 0) {
+                socket.emit('mouse_drag');
+            }
+        });
+
+        canvas.addEventListener('mouseup', e => {
+            if (e.button === 0) {
+                socket.emit('mouse_release');
+            }
+        });
+
+        canvas.addEventListener('contextmenu', e => {
+            e.preventDefault();
+            socket.emit('mouse_click', { click: 'right' });
+        });
+
+        // Bloquear teclas indesejadas e enviar teclas válidas ao servidor
+        canvas.addEventListener('keydown', e => {
+            if (!isAuthenticated) return; // Não permite eventos de teclado se não autenticado
+
+            const invalidKeys = ['Meta', 'Alt', 'Control']; // Teclas indesejadas
+            if (invalidKeys.includes(e.key)) {
+                e.preventDefault();
+                return;
+            }
+
+            if (e.key === 'Shift') {
+                return; // Shift sozinho não será enviado
+            }
+
+            if (e.shiftKey && e.key.length === 1) {
+                socket.emit('keyboard_input', { text: e.key.toUpperCase() }); // Shift + caracter
+            } else if (e.key.length === 1) {
+                socket.emit('keyboard_input', { text: e.key }); // Tecla simples
+            } else {
+                socket.emit('special_key', { key: e.key }); // Tecla especial
+            }
+            e.preventDefault();
+        });
+    </script>
+</body>
+</html>
+
+
