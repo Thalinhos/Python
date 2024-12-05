@@ -286,5 +286,175 @@
     </script>
 </body>
 </html>
+///////////////////////////////////////////// v3.0
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Interaction Client</title>
+    <script src="https://cdn.socket.io/4.5.1/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Remote Interaction Client</h1>
+    <canvas id="screen" width="1920" height="1080" style="border:1px solid black;" tabindex="1"></canvas>
+    <div>
+        <label for="resolution">Adjust Resolution:</label>
+        <select id="resolution">
+            <option value="1920x1080">1920x1080</option>
+            <option value="1280x720">1280x720</option>
+            <option value="1024x768">1024x768</option>
+        </select>
+        <button onclick="adjustResolution()">Apply</button>
+    </div>
+    <script>
+        const socket = io('http://189.6.194.62:8080'); // Conectando ao servidor intermediário
+
+        const clientId = 'client123'; // ID do cliente
+        const serverId = 'serverA'; // ID do servidor micro
+
+        const originalWidth = 1920; // Largura original do servidor micro
+        const originalHeight = 1080; // Altura original do servidor micro
+
+        let scaleX = 1; // Escala horizontal
+        let scaleY = 1; // Escala vertical
+
+        // Função para ajustar as coordenadas para a resolução original
+        function adjustCoordinates(x, y) {
+            return {
+                x: Math.round(x / scaleX),
+                y: Math.round(y / scaleY)
+            };
+        }
+
+        // Registro como cliente
+        socket.on('connect', () => {
+            socket.emit('register_client', { client_id: clientId });
+            console.log('Cliente registrado no servidor intermediário!');
+        });
+
+        // Enviar comando ao servidor micro
+        function sendCommand() {
+            socket.emit('client_request', {
+                client_id: clientId,
+                server_id: serverId,
+                data: { command: 'update_screen' }
+            });
+            console.log('Comando enviado ao servidor micro.');
+        }
+
+        // Receber imagem do servidor micro
+        socket.on('client_response', (data) => {
+            console.log('Imagem recebida:', data);
+
+            const canvas = document.getElementById('screen');
+            const context = canvas.getContext('2d');
+
+            if (data.data && data.data.image) {
+                const img = new Image();
+                img.onload = function () {
+                    context.clearRect(0, 0, canvas.width, canvas.height); // Limpar canvas
+                    context.drawImage(img, 0, 0, canvas.width, canvas.height); // Ajustar imagem ao tamanho do canvas
+                };
+                img.src = 'data:image/jpeg;base64,' + data.data.image;
+            }
+        });
+
+        // Capturar eventos do teclado
+        document.addEventListener('keydown', (event) => {
+            event.preventDefault(); // Bloquear comportamento padrão do navegador
+            event.stopPropagation(); // Impedir propagação do evento
+
+            const key = event.key;
+            console.log(`Tecla capturada: ${key}`);
+
+            // Enviar tecla ao servidor
+            socket.emit('client_request', {
+                client_id: clientId,
+                server_id: serverId,
+                data: { command: 'key_press', key: key }
+            });
+        });
+
+        // Capturar eventos do mouse
+        const canvas = document.getElementById('screen');
+
+        canvas.addEventListener('mousedown', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const coords = adjustCoordinates(x, y);
+            const button = event.button;
+
+            socket.emit('client_request', {
+                client_id: clientId,
+                server_id: serverId,
+                data: { command: 'mouse_down', x: coords.x, y: coords.y, button: button }
+            });
+            console.log(`Mouse pressionado em: (${coords.x}, ${coords.y}), botão: ${button}`);
+        });
+
+        canvas.addEventListener('mousemove', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const coords = adjustCoordinates(x, y);
+
+            socket.emit('client_request', {
+                client_id: clientId,
+                server_id: serverId,
+                data: { command: 'mouse_move', x: coords.x, y: coords.y }
+            });
+            console.log(`Mouse movido para: (${coords.x}, ${coords.y})`);
+        });
+
+        canvas.addEventListener('mouseup', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const coords = adjustCoordinates(x, y);
+            const button = event.button;
+
+            socket.emit('client_request', {
+                client_id: clientId,
+                server_id: serverId,
+                data: { command: 'mouse_up', x: coords.x, y: coords.y, button: button }
+            });
+            console.log(`Mouse solto em: (${coords.x}, ${coords.y}), botão: ${button}`);
+        });
+
+        canvas.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const coords = adjustCoordinates(x, y);
+
+            socket.emit('client_request', {
+                client_id: clientId,
+                server_id: serverId,
+                data: { command: 'mouse_click', x: coords.x, y: coords.y, button: 2 }
+            });
+            console.log(`Botão direito pressionado em: (${coords.x}, ${coords.y})`);
+        });
+
+        // Ajustar resolução dinamicamente
+        function adjustResolution() {
+            const resolution = document.getElementById('resolution').value.split('x');
+            const canvas = document.getElementById('screen');
+            const width = parseInt(resolution[0]);
+            const height = parseInt(resolution[1]);
+            scaleX = width / originalWidth;
+            scaleY = height / originalHeight;
+            canvas.width = width;
+            canvas.height = height;
+            console.log(`Resolução ajustada para: ${width}x${height}, escala: (${scaleX}, ${scaleY})`);
+        }
+
+        // Enviar comando para atualizar a tela a cada 0.5 segundos
+        setInterval(sendCommand, 500);
+    </script>
+</body>
+</html>
 
