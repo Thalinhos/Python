@@ -25,3 +25,12 @@ def get_user(user_id):
     user = cursor.fetchone()
     conn.close()
     return user
+
+# exemplo agora usando por range, da pra fazer com hashs/strings prefixadas
+# também pra facilitar, o esquema eh meter pau marco veio
+def get_shard_by_range(user_id):
+    if user_id < 1_000_000:
+        return connect_to_db('postgresql://shard0')
+    elif user_id < 2_000_000:
+        return connect_to_db('postgresql://shard1')
+    ...
